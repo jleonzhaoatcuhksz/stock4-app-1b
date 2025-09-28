@@ -34,6 +34,13 @@
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+    }
+    #newsResults {
+      max-height: 500px;
+      overflow-y: auto;
+      padding-right: 10px;
     }
     select, button {
       padding: 10px 15px;
@@ -64,6 +71,35 @@
       font-size: 0.9em;
       margin-bottom: 10px;
     }
+    .source-info {
+      font-style: italic;
+      color: #7f8c8d;
+      font-size: 0.85em;
+      margin-top: 5px;
+    }
+    .data-source {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.8em;
+      color: #95a5a6;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+    /* Scrollbar styling */
+    #newsResults::-webkit-scrollbar {
+      width: 8px;
+    }
+    #newsResults::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    #newsResults::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 10px;
+    }
+    #newsResults::-webkit-scrollbar-thumb:hover {
+      background: #a1a1a1;
+    }
   </style>
 </head>
 <body>
@@ -76,7 +112,11 @@
     </div>
     <div class="news-results">
       <h2>Financial Headlines</h2>
+      <div id="sourceWebsite" style="font-size: 0.9em; color: #3498db; margin-bottom: 15px;">Select a stock to view news</div>
       <div id="newsResults"></div>
+      <div class="data-source">
+        Data provided by financial news aggregation services
+      </div>
     </div>
   </div>
 
@@ -98,13 +138,17 @@
       document.getElementById('fetchNews').addEventListener('click', async () => {
         const symbol = select.value;
         const newsResults = document.getElementById('newsResults');
+        const sourceWebsite = document.getElementById('sourceWebsite');
         newsResults.innerHTML = '<p>Loading news...</p>';
+        sourceWebsite.textContent = `Loading news for ${symbol}...`;
         
         try {
           const response = await fetch(`/api/news/${symbol}`);
           const data = await response.json();
           
           if (data.news && data.news.length > 0) {
+            // Update the source website information
+            sourceWebsite.textContent = `News for ${symbol} from Google Finance and financial news sources`;
             newsResults.innerHTML = data.news.map(item => `
               <div class="news-item">
                 <h3>${item.title}</h3>
@@ -112,13 +156,18 @@
                   ${item.source} • ${new Date(item.date).toLocaleDateString()}
                 </div>
                 <a href="${item.url}" target="_blank">Read more</a>
+                <div class="source-info">
+                  Source: ${item.source}
+                </div>
               </div>
             `).join('');
           } else {
             newsResults.innerHTML = '<p>No recent news found for this stock.</p>';
+            sourceWebsite.textContent = `No news found for ${symbol}`;
           }
         } catch (error) {
           newsResults.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+          sourceWebsite.textContent = `Error loading news for ${symbol}`;
         }
       });
     });

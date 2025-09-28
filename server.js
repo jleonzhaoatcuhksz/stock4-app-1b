@@ -25,25 +25,33 @@ app.get('/api/news/:symbol', async (req, res) => {
       return res.status(400).json({ error: 'Invalid NASDAQ symbol' });
     }
 
-    // In production, this would call a Python scraping service
-    const mockNews = [
-      {
-        source: 'Yahoo Finance',
-        title: `${symbol} surges on earnings beat`,
-        date: new Date().toISOString(),
-        url: `https://finance.yahoo.com/quote/${symbol}`
-      },
-      {
-        source: 'MarketWatch',
-        title: `Analysts raise ${symbol} price target`,
-        date: new Date(Date.now() - 86400000).toISOString(),
-        url: `https://www.marketwatch.com/investing/stock/${symbol}`
+    // Use Python scraper to get news data
+    const pythonCommand = process.platform === 'win32' ? 'py' : 'python3';
+    const pythonProcess = exec(`${pythonCommand} scraper.py ${symbol}`, 
+      { cwd: __dirname, timeout: 15000 },
+      (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Python error: ${stderr}`);
+          return res.status(500).json({ error: 'Scraping failed', details: stderr });
+        }
+        
+        try {
+          const news = JSON.parse(stdout);
+          if (Array.isArray(news) && news.length === 0) {
+            return res.status(404).json({ error: 'No news found' });
+          } else if (news.error) {
+            return res.status(500).json({ error: news.error });
+          }
+          
+          res.json({ symbol, news });
+        } catch (e) {
+          console.error('Failed to parse scraped data:', e);
+          res.status(500).json({ error: 'Failed to parse scraped data', details: e.message });
+        }
       }
-    ];
-
-    res.json({ symbol, news: mockNews });
-
+    );
   } catch (error) {
+    console.error('Server error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -57,7 +65,41 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const PORT = process.env.PORT || 3007;
-app.listen(PORT, () => {
-  console.log(`Stock News Scraper running on port ${PORT}`);
+// Get port from command line, environment variable, or default
+const getPort = () => {
+  if (process.argv[2]) return parseInt(process.argv[2]);
+  if (process.env.PORT) return parseInt(process.env.PORT);
+  return 3015; // New default port
+};
+
+const PORT = getPort();
+const server = app.listen(PORT, () => {
+  console.log(`
+=== Server Started ===`);
+  console.log(`Port: ${PORT}`);
+  console.log(`Access: http://localhost:${PORT}`);
+  console.log(`Registered routes:`);
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      console.log(`- ${middleware.route.stack[0].method.toUpperCase()} ${middleware.route.path}`);
+    }
+  });
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Trying another port...`);
+    const newPort = PORT + 1;
+    server.listen(newPort);
+  } else {
+    console.error('Server error:', err);
+  }
+});
+
+// Verify all routes
+console.log('Registered routes:');
+app._router.stack.forEach((middleware) => {
+  if (middleware.route) {
+    console.log(`${middleware.route.stack[0].method.toUpperCase()} ${middleware.route.path}`);
+  }
 });
