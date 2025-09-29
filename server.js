@@ -3,6 +3,9 @@ const axios = require('axios');
 const cors = require('cors');
 const { exec } = require('child_process');
 const path = require('path');
+const Sentiment = require('sentiment');
+const natural = require('natural');
+const sentiment = new Sentiment();
 
 const app = express();
 app.use(cors());
@@ -42,8 +45,22 @@ app.get('/api/news/:symbol', async (req, res) => {
           } else if (news.error) {
             return res.status(500).json({ error: news.error });
           }
+
+          // Add sentiment analysis to each news item
+          const analyzedNews = news.map(item => {
+            const sentimentResult = sentiment.analyze(item.title);
+            return {
+              ...item,
+              sentiment: {
+                score: sentimentResult.score,
+                comparative: sentimentResult.comparative,
+                positive: sentimentResult.positive,
+                negative: sentimentResult.negative
+              }
+            };
+          });
           
-          res.json({ symbol, news });
+          res.json({ symbol, news: analyzedNews });
         } catch (e) {
           console.error('Failed to parse scraped data:', e);
           res.status(500).json({ error: 'Failed to parse scraped data', details: e.message });
@@ -52,6 +69,37 @@ app.get('/api/news/:symbol', async (req, res) => {
     );
   } catch (error) {
     console.error('Server error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Sentiment analysis endpoint
+app.get('/api/sentiment/:symbol', async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    
+    if (!NASDAQ_STOCKS.includes(symbol)) {
+      return res.status(400).json({ error: 'Invalid NASDAQ symbol' });
+    }
+
+    // Get news data first
+    const newsResponse = await axios.get(`http://localhost:${PORT}/api/news/${symbol}`);
+    const newsData = newsResponse.data.news;
+
+    // Calculate overall sentiment
+    const totalScore = newsData.reduce((sum, item) => sum + item.sentiment.score, 0);
+    const avgScore = totalScore / newsData.length;
+
+    res.json({
+      symbol,
+      sentimentScore: avgScore,
+      newsCount: newsData.length,
+      breakdown: newsData.map(item => ({
+        title: item.title,
+        score: item.sentiment.score
+      }))
+    });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });

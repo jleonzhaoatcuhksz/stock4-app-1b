@@ -5,6 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NASDAQ Stock News Scraper</title>
   <style>
+    .sentiment-score {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .positive {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .negative {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .neutral {
+      background-color: #e2e3e5;
+      color: #383d41;
+    }
+    .total-sentiment {
+      margin: 15px 0;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
+      font-weight: bold;
+    }
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       max-width: 1000px;
@@ -149,18 +176,39 @@
           if (data.news && data.news.length > 0) {
             // Update the source website information
             sourceWebsite.textContent = `News for ${symbol} provided by Alpha Vantage`;
-            newsResults.innerHTML = data.news.map(item => `
-              <div class="news-item">
-                <h3>${item.title}</h3>
-                <div class="news-meta">
-                  ${item.source} • ${new Date(item.date).toLocaleDateString()}
-                </div>
-                <a href="${item.url}" target="_blank">Read more</a>
-                <div class="source-info">
-                  Source: ${item.source}
-                </div>
+            // Calculate total sentiment
+            const totalScore = data.news.reduce((sum, item) => sum + (item.sentiment?.score || 0), 0);
+            const avgScore = totalScore / data.news.length;
+            const sentimentClass = avgScore > 0 ? 'positive' : avgScore < 0 ? 'negative' : 'neutral';
+            
+            newsResults.innerHTML = `
+              <div class="total-sentiment">
+                Overall Sentiment: 
+                <span class="sentiment-score ${sentimentClass}">
+                  ${avgScore.toFixed(2)}
+                </span>
+                (${data.news.length} articles analyzed)
               </div>
-            `).join('');
+              ${data.news.map(item => {
+                const itemScore = item.sentiment?.score || 0;
+                const itemClass = itemScore > 0 ? 'positive' : itemScore < 0 ? 'negative' : 'neutral';
+                return `
+                  <div class="news-item">
+                    <h3>${item.title}</h3>
+                    <div class="news-meta">
+                      ${item.source} • ${new Date(item.date).toLocaleDateString()}
+                      <span class="sentiment-score ${itemClass}">
+                        ${itemScore > 0 ? '+' : ''}${itemScore.toFixed(1)}
+                      </span>
+                    </div>
+                    <a href="${item.url}" target="_blank">Read more</a>
+                    <div class="source-info">
+                      Source: ${item.source}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            `;
           } else {
             newsResults.innerHTML = '<p>No recent news found for this stock.</p>';
             sourceWebsite.textContent = `No news found for ${symbol}`;
