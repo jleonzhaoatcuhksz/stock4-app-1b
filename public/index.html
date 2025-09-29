@@ -112,10 +112,10 @@
     </div>
     <div class="news-results">
       <h2>Financial Headlines</h2>
-      <div id="sourceWebsite" style="font-size: 0.9em; color: #3498db; margin-bottom: 15px;">Select a stock to view news</div>
+      <div id="sourceWebsite" style="font-size: 0.9em; color: #3498db; margin-bottom: 15px;">Data provided by Alpha Vantage</div>
       <div id="newsResults"></div>
       <div class="data-source">
-        Data provided by financial news aggregation services
+        Market data provided by Alpha Vantage API
       </div>
     </div>
   </div>
@@ -148,7 +148,7 @@
           
           if (data.news && data.news.length > 0) {
             // Update the source website information
-            sourceWebsite.textContent = `News for ${symbol} from Google Finance and financial news sources`;
+            sourceWebsite.textContent = `News for ${symbol} provided by Alpha Vantage`;
             newsResults.innerHTML = data.news.map(item => `
               <div class="news-item">
                 <h3>${item.title}</h3>
