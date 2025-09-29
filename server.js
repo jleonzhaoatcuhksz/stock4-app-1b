@@ -4,7 +4,6 @@ const cors = require('cors');
 const { exec } = require('child_process');
 const path = require('path');
 const Sentiment = require('sentiment');
-const natural = require('natural');
 const sentiment = new Sentiment();
 
 const app = express();
@@ -29,8 +28,8 @@ app.get('/api/news/:symbol', async (req, res) => {
     }
 
     // Use Python scraper to get news data
-    const pythonCommand = process.platform === 'win32' ? 'py' : 'python3';
-    const pythonProcess = exec(`${pythonCommand} scraper.py ${symbol}`, 
+    const pythonPath = `"${process.env.USERPROFILE}\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"`;
+    const pythonProcess = exec(`${pythonPath} scraper.py ${symbol}`, 
       { cwd: __dirname, timeout: 15000 },
       (error, stdout, stderr) => {
         if (error) {
@@ -47,15 +46,89 @@ app.get('/api/news/:symbol', async (req, res) => {
           }
 
           // Add sentiment analysis to each news item
+          // Enhanced sentiment scoring with more keywords
+          const customWords = {
+            // Strong positive terms (score 3-5)
+            'beating': 4, 'surge': 4, 'plunge': -4, 'rally': 3, 'boom': 4, 'soar': 4,
+            'breakthrough': 4, 'skyrocket': 5, 'explode': 4, 'dominance': 3,
+            'revolution': 4, 'game-changer': 4, 'unstoppable': 4, 'phenomenal': 4,
+            
+            // Moderate positive terms (score 2)
+            'comeback': 2, 'growth': 2, 'profit': 2, 'gain': 2, 'rise': 2, 
+            'record': 2, 'innovation': 2, 'leader': 2, 'momentum': 2, 'upside': 2,
+            'potential': 2, 'opportunity': 2, 'advantage': 2, 'strengthen': 2,
+            
+            // Financial fundamentals (score 1-2)
+            'dividend': 2, 'yield': 1, 'premium': 1, 'valuation': 1, 'earnings': 2,
+            'revenue': 2, 'margin': 2, 'ROI': 2, 'P/E': 1, 'cashflow': 2,
+            'balance sheet': 1, 'liquidity': 1, 'solvency': 1, 'efficiency': 1,
+            
+            // Strong negative terms (score -3 to -5)
+            'crash': -4, 'collapse': -5, 'meltdown': -4, 'disaster': -4,
+            'catastrophe': -5, 'doomed': -4, 'failure': -3, 'bankruptcy': -5,
+            
+            // Moderate negative terms (score -1 to -2)  
+            'drop': -2, 'fall': -2, 'loss': -2, 'decline': -2, 'slump': -2,
+            'dip': -1, 'volatile': -2, 'risk': -2, 'warning': -2, 'cut': -2,
+            'reduce': -1, 'short': -3, 'overvalued': -2, 'weakness': -2,
+            'threat': -2, 'concern': -1, 'challenge': -1, 'pressure': -1,
+            
+            // Market sentiment indicators
+            'bullish': 3, 'bearish': -3, 'neutral': 0, 'buy': 4, 'sell': -4,
+            'hold': 0, 'outperform': 3, 'underperform': -3, 'upgrade': 3,
+            'downgrade': -3, 'recommend': 2, 'avoid': -3, 'overweight': 2,
+            'underweight': -2, 'target': 1, 'accumulate': 2, 'reduce': -2,
+            
+            // Technical analysis terms
+            'support': 1, 'resistance': -1, 'breakout': 2, 'breakdown': -2,
+            'trend': 1, 'reversal': 0, 'consolidation': 0, 'oversold': 1,
+            'overbought': -1, 'rally': 3, 'correction': -2, 'rebound': 2,
+            
+            // Corporate actions
+            'split': 1, 'merger': 1, 'acquisition': 1, 'spin-off': 0,
+            'bankruptcy': -5, 'delisting': -4, 'IPO': 1, 'SPAC': 0,
+            
+            // Analyst ratings
+            'strong buy': 5, 'buy': 4, 'outperform': 3, 'hold': 0,
+            'underperform': -3, 'sell': -4, 'strong sell': -5
+          };
+          
           const analyzedNews = news.map(item => {
             const sentimentResult = sentiment.analyze(item.title);
+            
+            // Apply custom scoring
+            let customScore = 0;
+            const customKeywords = [];
+            for (const [word, score] of Object.entries(customWords)) {
+              if (item.title.toLowerCase().includes(word)) {
+                customScore += score;
+                customKeywords.push(word);
+              }
+            }
+            
+            const finalScore = sentimentResult.score + customScore;
+            const allKeywords = [
+              ...new Set([
+                ...sentimentResult.positive,
+                ...sentimentResult.negative,
+                ...customKeywords
+              ])
+            ].filter(k => k.length > 3); // Filter out short words
+            
+            console.log('Sentiment analysis for:', item.title);
+            console.log('Base score:', sentimentResult.score);
+            console.log('Custom score:', customScore);
+            console.log('Final score:', finalScore);
+            console.log('Keywords:', [...sentimentResult.positive, ...sentimentResult.negative, ...customKeywords]);
+            
             return {
               ...item,
               sentiment: {
-                score: sentimentResult.score,
+                score: finalScore,
                 comparative: sentimentResult.comparative,
                 positive: sentimentResult.positive,
-                negative: sentimentResult.negative
+                negative: sentimentResult.negative,
+                keywords: [...new Set([...sentimentResult.positive, ...sentimentResult.negative, ...customKeywords])]
               }
             };
           });

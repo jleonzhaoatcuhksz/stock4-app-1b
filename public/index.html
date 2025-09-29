@@ -25,6 +25,36 @@
       background-color: #e2e3e5;
       color: #383d41;
     }
+    .sentiment-keywords {
+      font-size: 0.8em;
+      color: #6c757d;
+      margin-top: 5px;
+      padding: 5px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+    .sentiment-keywords {
+      margin-top: 10px;
+    }
+    .keyword-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      margin: 2px;
+      border-radius: 12px;
+      font-size: 0.75em;
+    }
+    .positive-tag {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .negative-tag {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .custom-tag {
+      background-color: #e2e3e5;
+      color: #383d41;
+    }
     .total-sentiment {
       margin: 15px 0;
       padding: 10px;
@@ -204,6 +234,25 @@
                     <a href="${item.url}" target="_blank">Read more</a>
                     <div class="source-info">
                       Source: ${item.source}
+                    </div>
+                    <div class="sentiment-keywords">
+                      ${item.sentiment.keywords.length > 0 ? 
+                        `<div>
+                          <strong>Keywords:</strong>
+                          ${item.sentiment.keywords.map(keyword => {
+                            const isPositive = item.sentiment.positive.includes(keyword);
+                            const isNegative = item.sentiment.negative.includes(keyword);
+                            const isCustom = !isPositive && !isNegative;
+                            return `
+                              <span class="keyword-tag 
+                                ${isPositive ? 'positive-tag' : ''}
+                                ${isNegative ? 'negative-tag' : ''}
+                                ${isCustom ? 'custom-tag' : ''}">
+                                ${keyword}
+                              </span>
+                            `;
+                          }).join('')}
+                        </div>` : ''}
                     </div>
                   </div>
                 `;
